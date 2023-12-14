@@ -19,37 +19,45 @@ final class NormalizationTest extends TestCase
 {
     public static function namesProvider(): \Generator
     {
-        $baseTemplate = 'error_'.__METHOD__;
+        $baseTemplate = 'error_' . __METHOD__;
+        $stringTransform = ['from' => '\\:', 'to' => '-_'];
 
         yield 'test name without datasets' => [
             'test name' => __METHOD__,
-            'expected output' => \strtr($baseTemplate, '\\:', '-_').'__0',
+            'expected output' => \strtr($baseTemplate, ...$stringTransform) . '__0',
         ];
 
-        $datasetTemplate = $baseTemplate.'__data-set-%s__0';
+        $datasetTemplate = $baseTemplate . '__data-set-%s__0';
 
-        $alphaTemplate = \sprintf($datasetTemplate, 'test-set', '');
-        $alphaOutput = \strtr($alphaTemplate, '\\:', '-_');
+        $alphaTemplate = sprintf($datasetTemplate, 'test-set');
+        $alphaOutput = \strtr($alphaTemplate, ...$stringTransform);
 
-        $numericTemplate = \sprintf($datasetTemplate, '0', '');
-        $numericOutput = \strtr($numericTemplate, '\\:', '-_');
+        $numericTemplate = sprintf($datasetTemplate, '0');
+        $numericOutput = \strtr($numericTemplate, ...$stringTransform);
 
-        yield 'phpunit 10 alpha' => [
-            'test name' => __METHOD__.' with data set "test set"',
-            'expected output' => $alphaOutput,
-        ];
-        yield 'phpunit 10 numeric' => [
-            'test name' => __METHOD__.' with data set #0',
-            'expected output' => $numericOutput,
-        ];
-        yield 'legacy alpha' => [
-            'test name' => __METHOD__.' with data set "test set" (test set)',
-            'expected output' => $alphaOutput,
-        ];
-        yield 'legacy numeric' => [
-            'test name' => __METHOD__.' with data set #0 (test set)',
-            'expected output' => $numericOutput,
-        ];
+        $datasetMessagePrefix = __METHOD__ . ' with data set ';
+
+        yield 'phpunit 10 alpha' => [$datasetMessagePrefix . '"test set"', $alphaOutput];
+        yield 'phpunit 10 numeric' => [$datasetMessagePrefix . '#0', $numericOutput];
+        yield 'legacy alpha' => [$datasetMessagePrefix . '"test set" (test set)', $alphaOutput];
+        yield 'legacy numeric' => [$datasetMessagePrefix . '#0 (test set)', $numericOutput];
+
+        foreach (self::edgeCaseTestNames() as $caseIndex => $edgeCaseName) {
+            $alphaTemplate = sprintf($datasetTemplate, $edgeCaseName);
+            $alphaOutput = \strtr($alphaTemplate, ...$stringTransform);
+
+            yield $caseIndex => [$datasetMessagePrefix . $edgeCaseName, $alphaOutput];
+        }
+    }
+
+    private static function edgeCaseTestNames(): \Generator
+    {
+        yield 'self within moustache' => 'te{{self}}st';
+        yield 'double quoted with space' => '_self.env.setCache("uri://host.net:2121") _self.env.loadTemplate("other-host")';
+        yield 'double quotes in moustache' => 'te{{_self.env.registerUndefinedFilterCallback("exec")}}{{_self.env.getFilter("id")}}st';
+        yield 'escaped simple quote' => 'te{{\'/etc/passwd\'|file_excerpt(1,30)}}st';
+        yield 'single quote for array index access' => 'te{{[\'id\']|filter(\'system\')}}st';
+        yield 'numeric array access' => 'te{{[0]|reduce(\'system\',\'id\')}}st';
     }
 
     /**
